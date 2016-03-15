@@ -157,8 +157,22 @@ def execute():
             if rotate_scavenge > 0:
                 delete_utc_datetime = prev_utc_datetime - time_delta
                 delete_table_name = table_name + delete_utc_datetime.strftime( rotate_suffix )
-                dynamodb.ensure_deleted( delete_table_name )          
-            
+                dynamodb.ensure_deleted( delete_table_name )
+                
+                existing_table_names = dynamodb.get_rotated_table_names( table_name )
+                for existing_table_name in existing_table_names:
+                    existing_utc_datetime_str = existing_table_name[ len (table_name) : ]
+                    try:
+                       existing_utc_datetime = datetime.strptime( existing_utc_datetime_str, rotate_suffix )
+                       if existing_utc_datetime < delete_utc_datetime:
+                           dynamodb.ensure_deleted( existing_table_name )
+                       
+                    except ValueError:
+                       logger.warn( 'Could not parse date (with {0} format) from {1} for table {2}'.format(
+                              rotate_suffix,
+                              existing_utc_datetime_str,
+                              existing_table_name ) )  
+                           
     for table_name, table_key in sorted(tables_and_gsis):
         try:
             table_num_consec_read_checks = \

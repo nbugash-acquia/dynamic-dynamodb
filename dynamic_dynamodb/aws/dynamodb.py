@@ -84,6 +84,21 @@ def get_table(table_name):
 
     return table
 
+def get_rotated_table_names(table_name):
+    """ Get a set of table names that are rotated tables based on the given table name
+
+    :param table_name: Name of the DynamoD table that the rotated tables are based on
+    :returns: set -- A set of table names
+    """
+    table_names = set()
+
+    # Add regexp table names
+    for table_instance in list_tables():
+        if table_instance.table_name != table_name and table_instance.table_name.startswith(table_name):
+            table_names.add(table_instance.table_name)
+    
+    return sorted(table_names)
+    
 
 def get_gsi_status(table_name, gsi_name):
     """ Return the DynamoDB table
