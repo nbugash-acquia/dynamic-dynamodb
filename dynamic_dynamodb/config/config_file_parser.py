@@ -263,7 +263,13 @@ TABLE_CONFIG_OPTIONS = [
     	'option': 'rotate_scavenge',
     	'required': False,
     	'type': 'int'
-    },    
+    },   
+    {
+        'key': 'rotate_on_day_in_month',
+        'option': 'rotate_on_day_in_month',
+        'required': False,
+        'type': 'int'
+    },  
     {
         'key': 'lookback_period',
         'option': 'lookback-period',

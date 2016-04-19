@@ -15,6 +15,23 @@ def get_configured_tables():
     except KeyError:
         return []
 
+
+def get_configured_time_series_key_names():
+    """ Returns the list of all configured tables that should be time series tables
+    
+    :returns: list -- List of tables
+    """
+    try:
+        time_series_key_names = set()
+        for key_name in CONFIGURATION['tables'].keys():
+            key_config = CONFIGURATION['tables'][key_name]            
+            if 'rotate_on_day_in_month' in key_config and key_config['rotate_on_day_in_month'] != None:
+               time_series_key_names.add( key_name )
+
+        return time_series_key_names                
+    except KeyError:
+         return []
+
 def get_configured_rotated_key_names():
     """ Returns the list of all configured tables that should be rotated
     
@@ -24,7 +41,7 @@ def get_configured_rotated_key_names():
         rotated_key_names = set()
         for key_name in CONFIGURATION['tables'].keys():
             key_config = CONFIGURATION['tables'][key_name]            
-            if 'rotate_suffix' in key_config and key_config['rotate_suffix'] != None:
+            if 'rotate_interval' in key_config and key_config['rotate_interval'] != None:
                rotated_key_names.add( key_name )
 
         return rotated_key_names                
