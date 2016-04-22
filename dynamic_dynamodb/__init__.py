@@ -33,7 +33,7 @@ from boto.exception import JSONResponseError, BotoServerError
 from dynamic_dynamodb.aws import dynamodb
 from dynamic_dynamodb.core import gsi, table
 from dynamic_dynamodb.daemon import Daemon
-from dynamic_dynamodb.config_handler import get_global_option, get_table_option, get_configured_rotated_key_names
+from dynamic_dynamodb.config_handler import get_global_option, get_table_option, get_configured_rotated_key_names, get_configured_time_series_key_names
 from dynamic_dynamodb.log_handler import LOGGER as logger
 
 CHECK_STATUS = {
@@ -122,7 +122,7 @@ def create_time_series_tables(rotate_suffix, rotate_on_day_in_month, rotate_scav
 
     elif rotate_on_day_in_month <= 0:
         last_day_of_month = calendar.monthrange(sourcedate.year,sourcedate.month)[1]
-        
+
         if day_of_month == last_day_of_month + rotate_on_day_in_month:
             dynamodb.ensure_created( next_table_name, table_name )
             next_table_names.add( ( next_table_name, cur_table_name, table_key ) )
