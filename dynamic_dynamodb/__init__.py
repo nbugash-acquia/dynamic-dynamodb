@@ -122,7 +122,7 @@ def create_time_series_tables(rotate_suffix, rotate_on_day_in_month, rotate_scav
 
     elif rotate_on_day_in_month <= 0:
         last_day_of_month = calendar.monthrange(sourcedate.year,sourcedate.month)[1]
-
+        
         if day_of_month == last_day_of_month + rotate_on_day_in_month:
             dynamodb.ensure_created( next_table_name, table_name )
             next_table_names.add( ( next_table_name, cur_table_name, table_key ) )
@@ -131,18 +131,18 @@ def create_time_series_tables(rotate_suffix, rotate_on_day_in_month, rotate_scav
     delete_utc_datetime = sourcedate - relativedelta(months=rotate_scavenge)
     
     existing_table_names = dynamodb.get_rotated_table_names( table_name )
-        for existing_table_name in existing_table_names:
-            existing_utc_datetime_str = existing_table_name[ len (table_name) : ]
-            try:
-               existing_utc_datetime = datetime.strptime( existing_utc_datetime_str, rotate_suffix )
-               if existing_utc_datetime < delete_utc_datetime:
-                   dynamodb.ensure_deleted( existing_table_name )
-               
-            except ValueError:
-               logger.warn( 'Could not parse date (with {0} format) from {1} for table {2}'.format(
-                      rotate_suffix,
-                      existing_utc_datetime_str,
-                      existing_table_name ) ) 
+    for existing_table_name in existing_table_names:
+        existing_utc_datetime_str = existing_table_name[ len (table_name) : ]
+        try:
+           existing_utc_datetime = datetime.strptime( existing_utc_datetime_str, rotate_suffix )
+           if existing_utc_datetime < delete_utc_datetime:
+               dynamodb.ensure_deleted( existing_table_name )
+           
+        except ValueError:
+           logger.warn( 'Could not parse date (with {0} format) from {1} for table {2}'.format(
+                  rotate_suffix,
+                  existing_utc_datetime_str,
+                  existing_table_name ) ) 
 
 
 def create_rotating_tables(rotate_suffix, rotate_interval, rotate_scavenge, table_name, table_key, tables_and_gsis, next_table_names):
