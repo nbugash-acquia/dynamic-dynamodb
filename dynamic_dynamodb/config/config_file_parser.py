@@ -265,8 +265,14 @@ TABLE_CONFIG_OPTIONS = [
     	'type': 'int'
     },   
     {
-        'key': 'rotate_on_day_in_month',
-        'option': 'rotate_on_day_in_month',
+        'key': 'rotate_interval_unit',
+        'option': 'rotate_interval_unit',
+        'required': False,
+        'type': 'str'
+    },  
+    {
+        'key': 'rotate_window_start',
+        'option': 'rotate_window_start',
         'required': False,
         'type': 'int'
     },  

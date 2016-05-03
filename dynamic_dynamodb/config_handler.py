@@ -15,7 +15,6 @@ def get_configured_tables():
     except KeyError:
         return []
 
-
 def get_configured_time_series_key_names():
     """ Returns the list of all configured tables that should be time series tables
     
@@ -25,7 +24,7 @@ def get_configured_time_series_key_names():
         time_series_key_names = set()
         for key_name in CONFIGURATION['tables'].keys():
             key_config = CONFIGURATION['tables'][key_name]            
-            if 'rotate_on_day_in_month' in key_config and key_config['rotate_on_day_in_month'] != None:
+            if 'rotate_interval_unit' in key_config and key_config['rotate_interval_unit'] != None:
                time_series_key_names.add( key_name )
 
         return time_series_key_names                
