@@ -263,7 +263,19 @@ TABLE_CONFIG_OPTIONS = [
     	'option': 'rotate_scavenge',
     	'required': False,
     	'type': 'int'
-    },    
+    },   
+    {
+        'key': 'rotate_interval_unit',
+        'option': 'rotate_interval_unit',
+        'required': False,
+        'type': 'str'
+    },  
+    {
+        'key': 'rotate_window_start',
+        'option': 'rotate_window_start',
+        'required': False,
+        'type': 'int'
+    },  
     {
         'key': 'lookback_period',
         'option': 'lookback-period',

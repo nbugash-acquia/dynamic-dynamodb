@@ -23,14 +23,17 @@ limitations under the License.
 import re
 import sys
 import time
+import calendar
 
 from datetime import timedelta, datetime
+from dateutil.relativedelta import relativedelta
+
 from boto.exception import JSONResponseError, BotoServerError
 
 from dynamic_dynamodb.aws import dynamodb
 from dynamic_dynamodb.core import gsi, table
 from dynamic_dynamodb.daemon import Daemon
-from dynamic_dynamodb.config_handler import get_global_option, get_table_option, get_configured_rotated_key_names
+from dynamic_dynamodb.config_handler import get_global_option, get_table_option, get_configured_rotated_key_names, get_configured_time_series_key_names
 from dynamic_dynamodb.log_handler import LOGGER as logger
 
 CHECK_STATUS = {
@@ -101,6 +104,126 @@ def main():
     except Exception as error:
         logger.exception(error)
 
+def create_time_series_tables(rotate_suffix, rotate_window_start, rotate_scavenge, table_name, table_key, tables_and_gsis, next_table_names):
+    day_of_month = datetime.utcnow().day
+
+    sourcedate = datetime.utcnow()
+
+    first_day_next_month = datetime(sourcedate.year, sourcedate.month, 1) + relativedelta(months=1)
+
+    rotate_datetime = first_day_next_month - timedelta(seconds=rotate_window_start)
+    logger.info("rotate_datetime " + unicode(rotate_datetime))
+
+    next_check = datetime.utcnow() + timedelta(seconds=get_global_option( 'check_interval' ))
+    logger.info("next_check " + unicode(next_check))
+
+    cur_table_name = table_name + sourcedate.strftime( rotate_suffix )
+    logger.info('cur_table_name ' + cur_table_name)
+    next_table_name = table_name + first_day_next_month.strftime( rotate_suffix )
+    logger.info('next_table_name ' + next_table_name)
+
+    dynamodb.ensure_created( cur_table_name, table_name )
+    tables_and_gsis.add( ( cur_table_name, table_key ) )
+
+    # check if the next check is after the rotate date time and create the next time series table
+    if next_check > rotate_datetime:
+        dynamodb.ensure_created( next_table_name, table_name )
+        next_table_names.add( ( next_table_name, cur_table_name, table_key ) )
+
+    # delete old existing table name
+    delete_utc_datetime = sourcedate - relativedelta(months=rotate_scavenge)
+    logger.info('delete_utc_datetime ' + unicode(delete_utc_datetime))
+    existing_table_names = dynamodb.get_rotated_table_names( table_name )
+
+    for existing_table_name in existing_table_names:
+        existing_utc_datetime_str = existing_table_name[ len (table_name) : ]
+        if existing_utc_datetime_str.startswith("_"):
+            continue
+
+        try:
+           existing_utc_datetime = datetime.strptime( existing_utc_datetime_str, rotate_suffix )
+           logger.info(unicode(existing_utc_datetime))
+           if existing_utc_datetime < delete_utc_datetime:
+                logger.info('existing_table_name ' + existing_table_name)
+                dynamodb.ensure_deleted( existing_table_name )
+           
+        except ValueError:
+           logger.warn( 'Could not parse date (with {0} format) from {1} for table {2}'.format(
+                  rotate_suffix,
+                  existing_utc_datetime_str,
+                  existing_table_name ) ) 
+
+
+def create_rotating_tables(rotate_suffix, rotate_interval, rotate_window_start, rotate_scavenge, table_name, table_key, tables_and_gsis, next_table_names):
+    time_delta = timedelta(seconds=rotate_interval)
+    time_delta_totalseconds = rotate_interval
+    
+    epoch = datetime.utcfromtimestamp(0)
+    cur_timedelta = datetime.utcnow() - epoch
+    cur_timedelta_totalseconds = (cur_timedelta.microseconds + (cur_timedelta.seconds + cur_timedelta.days*24*3600) * 1e6) / 1e6
+    
+    cur_utc_datetime = datetime.utcnow() - timedelta(seconds=(cur_timedelta_totalseconds%time_delta_totalseconds))
+    cur_table_name = table_name + cur_utc_datetime.strftime( rotate_suffix )
+    
+    dynamodb.ensure_created( cur_table_name, table_name )
+    tables_and_gsis.add(
+        ( cur_table_name, table_key ) )
+    
+    next_utc_datetime = cur_utc_datetime + time_delta
+
+    if rotate_window_start != None:
+        rotate_datetime = next_utc_datetime - timedelta(seconds=rotate_window_start)
+        logger.info("rotate_datetime " + unicode(rotate_datetime))
+        next_check = datetime.utcnow() + timedelta(seconds=get_global_option( 'check_interval' ))
+        logger.info("next_check " + unicode(next_check))
+
+        if next_check > rotate_datetime:
+            next_utc_time_delta = cur_utc_datetime + time_delta
+            next_table_name = table_name + next_utc_time_delta.strftime( rotate_suffix )
+            dynamodb.ensure_created( next_table_name, table_name )
+            next_table_names.add( ( next_table_name, cur_table_name, table_key ) )
+
+    till_next_timedelta = next_utc_datetime - datetime.utcnow()
+    till_next_timedelta_totalseconds = (till_next_timedelta.microseconds + (till_next_timedelta.seconds + till_next_timedelta.days*24*3600) * 1e6) / 1e6
+    logger.info( 'next table delta {0} < {1}'.format( till_next_timedelta_totalseconds, get_global_option('check_interval') ) )
+    if till_next_timedelta_totalseconds < get_global_option( 'check_interval' ):
+        next_utc_time_delta = cur_utc_datetime + time_delta
+        next_table_name = table_name + next_utc_time_delta.strftime( rotate_suffix )
+        dynamodb.ensure_created( next_table_name, table_name )
+        next_table_names.add( ( next_table_name, cur_table_name, table_key ) )
+                    
+    prev_utc_datetime = cur_utc_datetime
+    prev_index = 1
+    while rotate_scavenge == -1 or prev_index < rotate_scavenge:
+        prev_utc_datetime = prev_utc_datetime - time_delta
+        prev_table_name = table_name + prev_utc_datetime.strftime( rotate_suffix )
+        if dynamodb.exists( prev_table_name ):
+           tables_and_gsis.add( 
+               ( prev_table_name, table_key ) 
+           )
+        elif rotate_scavenge == -1:
+           break
+           
+        prev_index += 1
+    
+    if rotate_scavenge > 0:
+        delete_utc_datetime = prev_utc_datetime - time_delta
+        delete_table_name = table_name + delete_utc_datetime.strftime( rotate_suffix )
+        dynamodb.ensure_deleted( delete_table_name )
+        
+        existing_table_names = dynamodb.get_rotated_table_names( table_name )
+        for existing_table_name in existing_table_names:
+            existing_utc_datetime_str = existing_table_name[ len (table_name) : ]
+            try:
+               existing_utc_datetime = datetime.strptime( existing_utc_datetime_str, rotate_suffix )
+               if existing_utc_datetime < delete_utc_datetime:
+                   dynamodb.ensure_deleted( existing_table_name )
+               
+            except ValueError:
+               logger.warn( 'Could not parse date (with {0} format) from {1} for table {2}'.format(
+                      rotate_suffix,
+                      existing_utc_datetime_str,
+                      existing_table_name ) )  
 
 def execute():
     """ Ensure provisioning """
@@ -109,69 +232,28 @@ def execute():
     # Ensure provisioning
     tables_and_gsis = set( dynamodb.get_tables_and_gsis() )
     rotated_key_names = get_configured_rotated_key_names()
+    time_series_key_names = get_configured_time_series_key_names()
+    
     next_table_names = set()
     for table_name, table_key in sorted(tables_and_gsis):
         if table_key in rotated_key_names:
             rotate_suffix = get_table_option(table_key, 'rotate_suffix')
             rotate_interval = get_table_option(table_key, 'rotate_interval')
+            rotate_window_start = get_table_option(table_key, 'rotate_window_start')
             rotate_scavenge = get_table_option(table_key, 'rotate_scavenge')
         
-            time_delta = timedelta(seconds=rotate_interval)
-            time_delta_totalseconds = rotate_interval
-            
-            epoch = datetime.utcfromtimestamp(0)
-            cur_timedelta = datetime.utcnow() - epoch
-            cur_timedelta_totalseconds = (cur_timedelta.microseconds + (cur_timedelta.seconds + cur_timedelta.days*24*3600) * 1e6) / 1e6
-            
-            cur_utc_datetime = datetime.utcnow() - timedelta(seconds=(cur_timedelta_totalseconds%time_delta_totalseconds))
-            cur_table_name = table_name + cur_utc_datetime.strftime( rotate_suffix )
-            
-            dynamodb.ensure_created( cur_table_name, table_name )
-            tables_and_gsis.add(
-                ( cur_table_name, table_key ) )
-                
-            next_utc_datetime = cur_utc_datetime + time_delta
-            till_next_timedelta = next_utc_datetime - datetime.utcnow()
-            till_next_timedelta_totalseconds = (till_next_timedelta.microseconds + (till_next_timedelta.seconds + till_next_timedelta.days*24*3600) * 1e6) / 1e6
-            logger.info( 'next table delta {0} < {1}'.format( till_next_timedelta_totalseconds, get_global_option('check_interval') ) )
-            if till_next_timedelta_totalseconds < get_global_option( 'check_interval' ):
-                next_utc_time_delta = cur_utc_datetime + time_delta
-                next_table_name = table_name + next_utc_time_delta.strftime( rotate_suffix )
-                dynamodb.ensure_created( next_table_name, table_name )
-                next_table_names.add( ( next_table_name, cur_table_name, table_key ) )
-                            
-            prev_utc_datetime = cur_utc_datetime
-            prev_index = 1
-            while rotate_scavenge == -1 or prev_index < rotate_scavenge:
-                prev_utc_datetime = prev_utc_datetime - time_delta
-                prev_table_name = table_name + prev_utc_datetime.strftime( rotate_suffix )
-                if dynamodb.exists( prev_table_name ):
-                   tables_and_gsis.add( 
-                       ( prev_table_name, table_key ) 
-                   )
-                elif rotate_scavenge == -1:
-                   break
-                   
-                prev_index += 1
-            
-            if rotate_scavenge > 0:
-                delete_utc_datetime = prev_utc_datetime - time_delta
-                delete_table_name = table_name + delete_utc_datetime.strftime( rotate_suffix )
-                dynamodb.ensure_deleted( delete_table_name )
-                
-                existing_table_names = dynamodb.get_rotated_table_names( table_name )
-                for existing_table_name in existing_table_names:
-                    existing_utc_datetime_str = existing_table_name[ len (table_name) : ]
-                    try:
-                       existing_utc_datetime = datetime.strptime( existing_utc_datetime_str, rotate_suffix )
-                       if existing_utc_datetime < delete_utc_datetime:
-                           dynamodb.ensure_deleted( existing_table_name )
-                       
-                    except ValueError:
-                       logger.warn( 'Could not parse date (with {0} format) from {1} for table {2}'.format(
-                              rotate_suffix,
-                              existing_utc_datetime_str,
-                              existing_table_name ) )  
+            create_rotating_tables(rotate_suffix, rotate_interval, rotate_window_start, rotate_scavenge, table_name, table_key, tables_and_gsis, next_table_names)
+
+        elif table_key in time_series_key_names:
+            # if rotate rotate_interval_unit is defined, then it should be the day in month or day in week
+            # if rotate_interval_unit is not defined, default last day is used.
+            rotate_suffix = get_table_option(table_key, 'rotate_suffix')
+            rotate_interval_unit = get_table_option(table_key, 'rotate_interval_unit') 
+            rotate_window_start = get_table_option(table_key, 'rotate_window_start')
+            rotate_scavenge = get_table_option(table_key, 'rotate_scavenge')          
+            if rotate_interval_unit == 'month':
+                create_time_series_tables(rotate_suffix, rotate_window_start, rotate_scavenge, table_name, table_key, tables_and_gsis, next_table_names)
+
                            
     for table_name, table_key in sorted(tables_and_gsis):
         try:
