@@ -22,8 +22,7 @@ import os.path
 import sys
 
 from logutils import dictconfig
-
-import config_handler
+import dynamic_dynamodb.config_handler as config_handler
 
 LOG_CONFIG = {
     'version': 1,

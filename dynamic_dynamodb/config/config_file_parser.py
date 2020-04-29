@@ -2,7 +2,7 @@
 """ Command line configuration parser """
 import sys
 import os.path
-import ConfigParser
+import configparser as ConfigParser
 import ast
 from copy import deepcopy
 
