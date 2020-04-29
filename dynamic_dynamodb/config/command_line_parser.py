@@ -3,7 +3,7 @@
 import sys
 import os.path
 import argparse
-import ConfigParser
+import configparser as ConfigParser
 
 
 def parse():
@@ -213,8 +213,8 @@ def parse():
                 os.path.join(
                     os.path.dirname(__file__), '../dynamic-dynamodb.conf')))
 
-        print 'Dynamic DynamoDB version: {0}'.format(
-            internal_config_file.get('general', 'version'))
+        print('Dynamic DynamoDB version: {0}'.format(
+            internal_config_file.get('general', 'version')))
         sys.exit(0)
 
     # Replace any new values in the configuration

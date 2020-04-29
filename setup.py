@@ -2,9 +2,9 @@
 import os
 import sys
 from setuptools import setup
-from ConfigParser import SafeConfigParser
+from configparser import ConfigParser
 
-settings = SafeConfigParser()
+settings = ConfigParser()
 settings.read(os.path.realpath('dynamic_dynamodb/dynamic-dynamodb.conf'))
 
 
@@ -21,6 +21,7 @@ def return_requires():
     return install_requires
 
 setup(
+    python_requires='>=3.6',
     name='dynamic-dynamodb',
     version=settings.get('general', 'version'),
     license='Apache License, Version 2.0',

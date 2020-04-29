@@ -35,3 +35,6 @@ nosetests.xml
 .pydevproject
 
 node_modules
+# Jetbrain
+*.iml
+.idea
