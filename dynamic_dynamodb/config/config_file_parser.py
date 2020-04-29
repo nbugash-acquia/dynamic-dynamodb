@@ -247,35 +247,35 @@ TABLE_CONFIG_OPTIONS = [
         'type': 'int'
     },
     {
-    	'key': 'rotate_suffix',
-    	'option': 'rotate_suffix',
-    	'required': False,
-    	'type': 'str'
+        'key': 'rotate_suffix',
+        'option': 'rotate_suffix',
+        'required': False,
+        'type': 'str'
     },
     {
-    	'key': 'rotate_interval',
-    	'option': 'rotate_interval',
-    	'required': False,
-    	'type': 'int'
+        'key': 'rotate_interval',
+        'option': 'rotate_interval',
+        'required': False,
+        'type': 'int'
     },
     {
-    	'key': 'rotate_scavenge',
-    	'option': 'rotate_scavenge',
-    	'required': False,
-    	'type': 'int'
-    },   
+        'key': 'rotate_scavenge',
+        'option': 'rotate_scavenge',
+        'required': False,
+        'type': 'int'
+    },
     {
         'key': 'rotate_interval_unit',
         'option': 'rotate_interval_unit',
         'required': False,
         'type': 'str'
-    },  
+    },
     {
         'key': 'rotate_window_start',
         'option': 'rotate_window_start',
         'required': False,
         'type': 'int'
-    },  
+    },
     {
         'key': 'lookback_period',
         'option': 'lookback-period',
@@ -597,9 +597,9 @@ def parse(config_path):
 
         found_table = True
         current_table_name = current_section.rsplit(':', 1)[1].strip()
-        table_config['tables'][current_table_name] = \
-            dict(default_options.items() + __parse_options(
-                config_file, current_section, TABLE_CONFIG_OPTIONS).items())
+        table_config['tables'][current_table_name] = {**default_options.items(),
+                                                      **__parse_options(config_file, current_section,
+                                                                        TABLE_CONFIG_OPTIONS).items()}
 
     if not found_table:
         print('Could not find a [table: <table_name>] section in {0}'.format(
