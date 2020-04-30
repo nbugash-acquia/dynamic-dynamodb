@@ -636,33 +636,37 @@ def __check_table_rules(configuration):
         for option in options:
             if (option in non_default
                     and option in table
-                    and table[option] and table[option] < 1):
+                    and table[option] is not None
+                    and table[option] < 1):
                 print('{0} may not be lower than 1 for table {1}'.format(
                     option, table_name))
                 sys.exit(1)
 
             if (option in table
                     and option not in non_default
+                    and table[option] is not None
                     and table[option] < 1):
                 print('{0} may not be lower than 1 for table {1}'.format(
                     option, table_name))
                 sys.exit(1)
 
-        if (int(table['min_provisioned_reads']) >
-                int(table['max_provisioned_reads'])):
-            print(
-                'min_provisioned_reads ({0}) may not be higher than '
-                'max_provisioned_reads ({1}) for table {2}'.format(
-                    table['min_provisioned_reads'],
-                    table['max_provisioned_reads'],
-                    table_name))
-            sys.exit(1)
-        elif (int(table['min_provisioned_writes']) >
-                int(table['max_provisioned_writes'])):
-            print(
-                'min_provisioned_writes ({0}) may not be higher than '
-                'max_provisioned_writes ({1}) for table {2}'.format(
-                    table['min_provisioned_writes'],
-                    table['max_provisioned_writes'],
-                    table_name))
-            sys.exit(1)
+        if (table['min_provisioned_reads'] is not None
+                and table['max_provisioned_reads'] is not None):
+            if (int(table['min_provisioned_reads']) >
+                    int(table['max_provisioned_reads'])):
+                print(
+                    'min_provisioned_reads ({0}) may not be higher than '
+                    'max_provisioned_reads ({1}) for table {2}'.format(
+                        table['min_provisioned_reads'],
+                        table['max_provisioned_reads'],
+                        table_name))
+                sys.exit(1)
+            elif (int(table['min_provisioned_writes']) >
+                  int(table['max_provisioned_writes'])):
+                print(
+                    'min_provisioned_writes ({0}) may not be higher than '
+                    'max_provisioned_writes ({1}) for table {2}'.format(
+                        table['min_provisioned_writes'],
+                        table['max_provisioned_writes'],
+                        table_name))
+                sys.exit(1)

@@ -38,3 +38,4 @@ node_modules
 # Jetbrain
 *.iml
 .idea
+dynamic-dynamodb.conf
