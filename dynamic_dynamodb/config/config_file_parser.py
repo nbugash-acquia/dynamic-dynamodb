@@ -597,7 +597,7 @@ def parse(config_path):
 
         found_table = True
         current_table_name = current_section.rsplit(':', 1)[1].strip()
-        table_config['tables'][current_table_name] = dict(default_options.items() | __parse_options(config_file, current_section, TABLE_CONFIG_OPTIONS).items())
+        table_config['tables'][current_table_name] = dict(default_options.items() or __parse_options(config_file, current_section, TABLE_CONFIG_OPTIONS).items())
 
     if not found_table:
         print('Could not find a [table: <table_name>] section in {0}'.format(
@@ -624,10 +624,10 @@ def parse(config_path):
             table_config['tables'][table_key]['gsis'] = {}
 
         table_config['tables'][table_key]['gsis'][gsi_key] = \
-            ordereddict(default_options.items() + __parse_options(
+            ordereddict(default_options.items() or __parse_options(
                 config_file, current_section, TABLE_CONFIG_OPTIONS).items())
 
     return ordereddict(
-        global_config.items() +
-        logging_config.items() +
+        global_config.items() or
+        logging_config.items() or
         table_config.items())
